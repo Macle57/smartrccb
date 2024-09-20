@@ -22,6 +22,8 @@ You will also need to manually install the ArduinoJson library if using the Ardu
 Command Line (Optional)
 If you prefer, you can install the PlatformIO CLI tool and upload the code via the following commands:
 
+```bash
 curl -O https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py && python get-platformio.py
 pio project init
 pio run -e esp32dev -t upload
+```

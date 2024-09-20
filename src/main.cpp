@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include <Arduino.h> // Comment this out if you are using Arduino IDE
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
