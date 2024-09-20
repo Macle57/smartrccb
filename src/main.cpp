@@ -1,6 +1,6 @@
 #include <Arduino.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 
 // #define STASSID "SafeHouse"
@@ -10,13 +10,14 @@
 const char* serverName = "http://192.168.0.238:3000/api/setCurrent";
 
 
-#define RELAY 27 // Pin D27 on ESP32 for relay
-#define IREAD 34  // Pin D34 on ESP32 for reading the leakage current
+#define RELAY 0 // Pin D27 on ESP32 for relay
+#define IREAD A0  // Pin D34 on ESP32 for reading the leakage current
 
 String poleid = "PID1"; // Pole ID to modify
 
 const char* ssid = STASSID;
 const char* password = STAPSK;
+WiFiClient client;
 
 
 // Define input pins and their corresponding PIDs
@@ -50,7 +51,7 @@ void loop() {
     
     int adcValue = analogRead(IREAD);
     // Convert ADC value to voltage (assuming 12-bit ADC and 3.3V reference)
-    float voltage = (adcValue * 3.3) / 4095.0;
+    float voltage = (adcValue * 1.0) / 1023.0;
     if (voltage<3){
       Serial.println("HELPPP");
       digitalWrite(RELAY, 1);
@@ -65,7 +66,7 @@ void loop() {
     serializeJson(doc, jsonString);
 
     // Send HTTP POST request
-    http.begin(serverName);
+    http.begin(client, serverName);
     http.addHeader("Content-Type", "application/json");
 
     int httpResponseCode = http.POST(jsonString);
