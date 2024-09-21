@@ -9,6 +9,7 @@ const String directDBapi = "http://192.168.0.238:8090/api/collections/Poles/reco
 
 #define RELAY 27 // Pin D27 on ESP32 for relay
 #define IREAD 34  // Pin D34 on ESP32 for reading the leakage current
+#define LED_BUILTIN 2 // Pin D2 on ESP32 for builtin led
 
 const String poleid = "PID1"; // Pole ID to modify
 const String poleRecordid = "vkeyhhpgwlrlzix";
@@ -83,6 +84,7 @@ void connectToWiFi() {
             Serial.print("IP address: ");
             Serial.println(WiFi.localIP());
             connected = true;
+            //flash builtin led twice quickly with loop
             break;  // Exit the loop if connected
           } else {
             Serial.println();
@@ -93,6 +95,13 @@ void connectToWiFi() {
         }
       }
       if (connected) {
+        for(int i=0;i<2;i++)
+        {
+              digitalWrite(LED_BUILTIN, HIGH);
+              delay(100);
+              digitalWrite(LED_BUILTIN, LOW);
+              delay(40);
+        }
         break;  // Exit outer loop if connected
       }
     }
@@ -128,6 +137,9 @@ void writeToNextAPI(String poleid, float voltage) {
       // String response = http.getString();
       // Serial.println("Response: " + response);
       Serial.println("Success, voltage written: " + String(voltage));
+      digitalWrite(LED_BUILTIN, HIGH);
+      delay(30);
+      digitalWrite(LED_BUILTIN, LOW);
     } else {
       Serial.println("Error on sending POST: " + String(httpResponseCode));
       Serial.println("Failed to write voltage: " + String(voltage));
@@ -173,13 +185,12 @@ void writeToDBdirectly(String poleRecordid ,float voltage) {
 }
 
 
-int latencySum = 0;
-int latencyCount = 0;
-
 void setup() {
   Serial.begin(9600);
   digitalWrite(RELAY, 0);
   pinMode(RELAY, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 
   // Initialize input pins
   pinMode(IREAD, INPUT);
@@ -191,12 +202,14 @@ void setup() {
 void loop() {
   // Check Wi-Fi connection
   if (WiFi.status() == WL_CONNECTED) {
+    int time = millis();
     
+
     // Read ADC value
     int adcValue = analogRead(IREAD);
     float voltage = (adcValue * 3.3) / 4095.0;
 
-    
+      
     writeToNextAPI(poleid, voltage);
     // writeToDBdirectly(poleRecordid, voltage);
 
@@ -206,14 +219,14 @@ void loop() {
       relay = false;
     }
 
-    // delay(100);  // Small delay between requests
+    int timetaken = millis() - time;
+    if (timetaken < 950) {
+      delay(950 - timetaken);
+    }
+
   } else {
     Serial.println("WiFi Disconnected");
   }
 }
 
 
-// int time = millis();
-    
-//     int latency = millis() - time;
-//     Serial.println("Latency: " + String(latency));
