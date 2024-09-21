@@ -3,7 +3,6 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-
 const String nextApi = "http://192.168.0.238:3000/api/setCurrent";
 const String directDBapi = "http://192.168.0.238:8090/api/collections/Poles/records/";
 
@@ -14,11 +13,8 @@ const String directDBapi = "http://192.168.0.238:8090/api/collections/Poles/reco
 const String poleid = "PID1"; // Pole ID to modify
 const String poleRecordid = "vkeyhhpgwlrlzix";
 
-
-// Define input pins and their corresponding PIDs
 const int numPins = 1;
 bool relay = true;
-
 
 // void connecctToWiFi();
 void connectToWiFi() {
@@ -36,35 +32,15 @@ void connectToWiFi() {
 
   const int num_known_networks = sizeof(known_ssids) / sizeof(known_ssids[0]);
 
-  Serial.println("Scanning for WiFi networks...");
-
   // Scan for available networks
   int n = WiFi.scanNetworks();
-  Serial.println("Scan complete.");
   
-  if (n == 0) {
-    Serial.println("No networks found.");
-  } else {
-    Serial.print(n);
-    Serial.println(" networks found:");
-
-    // List all detected networks
-    for (int i = 0; i < n; ++i) {
-      Serial.print(i + 1);
-      Serial.print(": ");
-      Serial.print(WiFi.SSID(i));
-      Serial.print(" (Signal Strength: ");
-      Serial.print(WiFi.RSSI(i));
-      Serial.println(" dBm)");
-    }
-
+  if (n != 0) {
     // Attempt to connect to known networks
     bool connected = false;
     for (int i = 0; i < num_known_networks; ++i) {
       for (int j = 0; j < n; ++j) {
         if (WiFi.SSID(j) == known_ssids[i]) {
-          Serial.print("Attempting to connect to ");
-          Serial.println(known_ssids[i]);
 
           WiFi.begin(known_ssids[i], known_passwords[i]);
 
@@ -72,80 +48,53 @@ void connectToWiFi() {
           int attempts = 0;
           while (WiFi.status() != WL_CONNECTED && attempts < 10) {
             delay(1000);
-            Serial.print(".");
             attempts++;
           }
 
           if (WiFi.status() == WL_CONNECTED) {
-            Serial.println();
-            Serial.println("Connected successfully!");
-            Serial.print("Connected to: ");
-            Serial.println(known_ssids[i]);
-            Serial.print("IP address: ");
-            Serial.println(WiFi.localIP());
             connected = true;
-            //flash builtin led twice quickly with loop
+            // Flash builtin led twice quickly with loop
+            for(int i=0;i<2;i++) {
+              digitalWrite(LED_BUILTIN, HIGH);
+              delay(100);
+              digitalWrite(LED_BUILTIN, LOW);
+              delay(40);
+            }
             break;  // Exit the loop if connected
           } else {
-            Serial.println();
-            Serial.print("Failed to connect to ");
-            Serial.println(known_ssids[i]);
             WiFi.disconnect();
           }
         }
       }
       if (connected) {
-        for(int i=0;i<2;i++)
-        {
-              digitalWrite(LED_BUILTIN, HIGH);
-              delay(100);
-              digitalWrite(LED_BUILTIN, LOW);
-              delay(40);
-        }
         break;  // Exit outer loop if connected
       }
-    }
-
-    if (!connected) {
-      Serial.println("Could not connect to any known networks.");
     }
   }
 }
 
 void writeToNextAPI(String poleid, float voltage) {
   HTTPClient http;
-    // Convert ADC value to voltage (assuming 12-bit ADC and 3.3V reference)
-    
-    // Prepare JSON payload
 
-    StaticJsonDocument<200> doc;
-    doc["pid"] = poleid;
-    doc["leakage"] = voltage;  // Sending voltage as leakage value
+  // Prepare JSON payload
+  StaticJsonDocument<200> doc;
+  doc["pid"] = poleid;
+  doc["leakage"] = voltage;  // Sending voltage as leakage value
 
-    String jsonString;
-    serializeJson(doc, jsonString);
+  String jsonString;
+  serializeJson(doc, jsonString);
 
-    // Send HTTP POST request
-    http.begin(nextApi);
-    // http.addHeader("Content-Type", "application/json");
+  // Send HTTP POST request
+  http.begin(nextApi);
+  int httpResponseCode = http.POST(jsonString);
 
+  if (httpResponseCode > 0) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(30);
+    digitalWrite(LED_BUILTIN, LOW);
+  }
 
-    int httpResponseCode = http.POST(jsonString);
-
-
-    if (httpResponseCode > 0) {
-      // String response = http.getString();
-      // Serial.println("Response: " + response);
-      Serial.println("Success, voltage written: " + String(voltage));
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(30);
-      digitalWrite(LED_BUILTIN, LOW);
-    } else {
-      Serial.println("Error on sending POST: " + String(httpResponseCode));
-      Serial.println("Failed to write voltage: " + String(voltage));
-    }
-
-    http.end();
+  http.end();
 }
 
 void writeToDBdirectly(String poleRecordid ,float voltage) {
@@ -162,31 +111,14 @@ void writeToDBdirectly(String poleRecordid ,float voltage) {
 
   // Begin HTTP connection
   http.begin(patchUrl);
-  // http.addHeader("Content-Type", "application/json");
-
 
   // Send PATCH request
   const int httpResponseCode = http.PATCH(jsonString);
 
-  // Handle the response
-  if (httpResponseCode > 0) {
-    // Serial.println("PATCH request sent successfully.");
-    Serial.println("Success: " + String(voltage));
-    // Optionally, read the response payload
-    // String response = http.getString();
-    // Serial.println("Response: " + response);
-  } else {
-    // Serial.println("Error on sending PATCH: " + String(httpResponseCode));
-    Serial.println("Failure: " + String(voltage));
-  }
-
-  // End the HTTP connection
   http.end();
 }
 
-
 void setup() {
-  Serial.begin(9600);
   digitalWrite(RELAY, 0);
   pinMode(RELAY, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -203,18 +135,14 @@ void loop() {
   // Check Wi-Fi connection
   if (WiFi.status() == WL_CONNECTED) {
     int time = millis();
-    
 
     // Read ADC value
     int adcValue = analogRead(IREAD);
     float voltage = (adcValue * 3.3) / 4095.0;
 
-      
     writeToNextAPI(poleid, voltage);
-    // writeToDBdirectly(poleRecordid, voltage);
 
-    if (voltage<3 && relay) {
-      Serial.println("HELPPP");
+    if (voltage < 3 && relay) {
       digitalWrite(RELAY, 1);
       relay = false;
     }
@@ -224,9 +152,5 @@ void loop() {
       delay(950 - timetaken);
     }
 
-  } else {
-    Serial.println("WiFi Disconnected");
   }
 }
-
-
