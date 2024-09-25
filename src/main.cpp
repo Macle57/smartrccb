@@ -13,12 +13,14 @@ const String directDBapi = "http://192.168.0.238:8090/api/collections/Poles/reco
 
 const String poleid = "PID1"; // Pole ID to modify
 const String poleRecordid = "vkeyhhpgwlrlzix";
+const int DELAY = 5000;
+const float THRESHOLD = 2.5;
 
 
 // Define input pins and their corresponding PIDs
 const int numPins = 1;
 bool relay = true;
-
+unsigned long mytimer;
 
 // void connecctToWiFi();
 void connectToWiFi() {
@@ -77,7 +79,6 @@ void connectToWiFi() {
           }
 
           if (WiFi.status() == WL_CONNECTED) {
-            Serial.println();
             Serial.println("Connected successfully!");
             Serial.print("Connected to: ");
             Serial.println(known_ssids[i]);
@@ -121,6 +122,13 @@ void writeToNextAPI(String poleid, float voltage) {
     StaticJsonDocument<200> doc;
     doc["pid"] = poleid;
     doc["leakage"] = voltage;  // Sending voltage as leakage value
+    if (voltage>THRESHOLD) {
+      doc["critical"] = true;
+      Serial.println("Critical");
+    }
+    else {
+      doc["critical"] = false;
+    }
 
     String jsonString;
     serializeJson(doc, jsonString);
@@ -148,6 +156,8 @@ void writeToNextAPI(String poleid, float voltage) {
     http.end();
 }
 
+
+/*
 void writeToDBdirectly(String poleRecordid ,float voltage) {
   HTTPClient http;
   // Prepare JSON payload
@@ -183,7 +193,7 @@ void writeToDBdirectly(String poleRecordid ,float voltage) {
   // End the HTTP connection
   http.end();
 }
-
+*/
 
 void setup() {
   Serial.begin(9600);
@@ -197,31 +207,34 @@ void setup() {
 
   // Connect to Wi-Fi
   connectToWiFi();
+  mytimer = millis();
 }
+
 
 void loop() {
   // Check Wi-Fi connection
   if (WiFi.status() == WL_CONNECTED) {
-    int time = millis();
-    
-
     // Read ADC value
     int adcValue = analogRead(IREAD);
-    float voltage = (adcValue * 3.3) / 4095.0;
+    float voltage = (((float)adcValue) * 3.0) / 4095.0;
+    voltage = map(voltage, 0.0, 3.0, 3.0, 0.0);
 
       
-    writeToNextAPI(poleid, voltage);
     // writeToDBdirectly(poleRecordid, voltage);
 
-    if (voltage<3 && relay) {
+    if (voltage>THRESHOLD && relay) {
       Serial.println("HELPPP");
-      digitalWrite(RELAY, 1);
-      relay = false;
+      if(relay){
+        relay = false;
+        mytimer = millis(); // Reset timer
+        writeToNextAPI(poleid, voltage);
+        digitalWrite(RELAY, 1);
+      }
     }
 
-    int timetaken = millis() - time;
-    if (timetaken < 950) {
-      delay(950 - timetaken);
+    if ((millis() - mytimer) > DELAY) {
+      writeToNextAPI(poleid, voltage);
+      mytimer = millis();
     }
 
   } else {
