@@ -1,3 +1,4 @@
+frontend: https://github.com/Macle57/earthingSystem
 # ESP32 JSON POST and Relay Control
 
 This code reads an ESP32 IO pin and sends the data via a POST request to an API in JSON format. Additionally, if a specified threshold is reached, the relay is turned off.
